@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Driver App — CO₂ Route</title>
+<meta name="theme-color" content="#1976D2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Driver">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   Palette is fixed by brief. Neutrals + amber added for the
+   states the brief implies (pending, paused, skipped).
+   ============================================================ */
+:root{
+  --blue:#1976D2;        /* header / primary CTA        */
+  --blue-dk:#12579B;
+  --blue-tint:#E8F1FB;
+  --green:#2E7D32;       /* completed                    */
+  --green-tint:#E9F3EA;
+  --cyan:#0288D1;        /* current stop                 */
+  --cyan-tint:#E4F3FB;
+  --red:#D32F2F;         /* problems                     */
+  --red-tint:#FBEAEA;
+  --amber:#F9A825;       /* paused / pending / skipped   */
+  --amber-tint:#FEF5E2;
+
+  --ink:#0E1A26;
+  --slate:#5C6F80;
+  --mute:#8A9AA8;
+  --line:#DCE4EC;
+  --canvas:#EDF1F5;
+  --panel:#FFFFFF;
+
+  --r-sm:10px; --r-md:14px; --r-lg:18px; --r-xl:24px;
+  --tap:52px;
+  --sh-1:0 1px 2px rgba(14,26,38,.06),0 1px 1px rgba(14,26,38,.04);
+  --sh-2:0 4px 16px rgba(14,26,38,.10);
+  --sh-3:0 -8px 40px rgba(14,26,38,.28);
+
+  --display:'Barlow Semi Condensed',-apple-system,'Segoe UI',sans-serif;
+  --body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;font-family:var(--body);color:var(--ink);
+  background:#0E1A26;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:none;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px;border-radius:4px}
+
+/* device frame on desktop; edge-to-edge on phones */
+#app{
+  position:relative;width:100%;max-width:430px;min-width:320px;margin:0 auto;
+  height:100dvh;background:var(--canvas);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+@media (min-width:520px){
+  body{display:flex;align-items:center;justify-content:center;padding:20px}
+  #app{height:min(920px,96dvh);border-radius:34px;box-shadow:0 30px 90px rgba(0,0,0,.55);border:1px solid #223244}
+}
+
+/* ============================================================ TYPE */
+.eyebrow{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.num{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em}
+
+/* ============================================================ SCREENS */
+.screen{display:none;flex:1;min-height:0;flex-direction:column}
+.screen.on{display:flex}
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.pad{padding:16px 16px 28px}
+
+/* ============================================================ TOP BAR */
+.topbar{
+  background:var(--blue);color:#fff;padding:calc(var(--safe-t) + 10px) 14px 0;
+  box-shadow:var(--sh-2);z-index:5;flex:none;
+}
+.topbar.plain{padding-bottom:14px}
+.tb-row{display:flex;align-items:center;gap:12px;min-height:44px}
+.tb-title{font-family:var(--display);font-size:21px;font-weight:600;letter-spacing:.01em;line-height:1.1}
+.tb-sub{font-size:11.5px;color:#BBD9F5;letter-spacing:.02em;margin-top:1px}
+.tb-btn{
+  width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  background:rgba(255,255,255,.14);color:#fff;flex:none;
+}
+.tb-btn:active{background:rgba(255,255,255,.28)}
+.tb-btn.on{background:var(--amber);color:#3A2600}
+.tb-btn svg{width:20px;height:20px;fill:currentColor}
+
+/* ---- SIGNATURE: TANK GAUGE ------------------------------- */
+.gauge{padding:12px 0 13px}
+.gauge-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+.gauge-label{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#A8CDF0}
+.gauge-read{font-family:var(--display);font-size:15px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+.gauge-read small{font-size:11px;font-weight:600;color:#A8CDF0;letter-spacing:.06em}
+.ticks{display:flex;gap:2px;height:14px;align-items:stretch}
+.tick{flex:1;background:rgba(255,255,255,.16);border-radius:2px;transition:background .45s ease}
+.tick.full{background:#fff}
+.tick.spent{background:rgba(255,255,255,.34)}
+.gauge-foot{display:flex;justify-content:space-between;margin-top:7px;font-size:11.5px;color:#BBD9F5;letter-spacing:.03em}
+.gauge-foot b{color:#fff;font-family:var(--display);font-size:13px;letter-spacing:.02em}
+
+/* ============================================================ BANNERS */
+.banner{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:var(--r-md);
+  font-size:13.5px;line-height:1.4;margin-bottom:12px;
+}
+.banner.paused{background:var(--amber-tint);border:1.5px solid #EBC26A;color:#6B4B00}
+.banner.alert{background:var(--cyan-tint);border:1.5px solid #9BD3EF;color:#0B4A66}
+.banner b{display:block;font-size:13px;margin-bottom:1px}
+.banner .x{margin-left:auto;font-size:20px;line-height:1;color:inherit;opacity:.5;padding:0 2px}
+
+/* ============================================================ BUTTONS */
+.btn{
+  width:100%;min-height:var(--tap);border-radius:var(--r-md);
+  font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:transform .08s ease,filter .15s ease;
+}
+.btn:active{transform:scale(.985);filter:brightness(.94)}
+.btn svg{width:19px;height:19px;fill:currentColor}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 2px 0 var(--blue-dk)}
+.btn-danger{background:var(--red);color:#fff;box-shadow:0 2px 0 #9E2020}
+.btn-cyan{background:var(--cyan);color:#fff;box-shadow:0 2px 0 #01669B}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 2px 0 #1F5B23}
+.btn-ghost{background:var(--panel);color:var(--ink);border:1.5px solid var(--line)}
+.btn-xl{min-height:58px;font-size:18px}
+.btn:disabled{opacity:.45;box-shadow:none;pointer-events:none}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+
+/* ============================================================ CARDS */
+.card{background:var(--panel);border-radius:var(--r-lg);box-shadow:var(--sh-1);border:1px solid var(--line);overflow:hidden}
+.card + .card{margin-top:12px}
+.sect{margin:22px 0 10px;display:flex;align-items:center;gap:9px}
+.sect:first-child{margin-top:4px}
+.sect .eyebrow{white-space:nowrap}
+.sect hr{flex:1;border:0;border-top:1px solid var(--line);margin:0}
+
+/* ---- pills ---- */
+.pill{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;
+  font-family:var(--display);font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+}
+.pill-green{background:var(--green-tint);color:var(--green)}
+.pill-cyan{background:var(--cyan-tint);color:#01659A}
+.pill-blue{background:var(--blue-tint);color:var(--blue-dk)}
+.pill-red{background:var(--red-tint);color:var(--red)}
+.pill-amber{background:var(--amber-tint);color:#8A5C00}
+.pill-grey{background:#EEF2F6;color:var(--slate)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ============================================================ FORM FIELDS
+   Full-width, rounded, inset floating label. */
+.field{
+  position:relative;display:block;width:100%;background:var(--panel);
+  border:1.5px solid var(--line);border-radius:var(--r-md);
+  padding:9px 14px 10px;margin-bottom:12px;transition:border-color .15s,box-shadow .15s;
+}
+.field:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(25,118,210,.14)}
+.field > span{
+  display:block;font-family:var(--display);font-size:11px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--slate);margin-bottom:2px;
+}
+.field:focus-within > span{color:var(--blue)}
+.field input,.field select,.field textarea{
+  width:100%;border:0;background:none;outline:none;font-size:17px;font-weight:500;padding:0;
+}
+.field input::placeholder,.field textarea::placeholder{color:#B6C2CD;font-weight:400}
+.field textarea{resize:none;line-height:1.45;font-size:15.5px}
+.field select{-webkit-appearance:none;appearance:none;font-family:var(--display);font-size:19px;font-weight:600}
+.field.sel::after{
+  content:"";position:absolute;right:16px;top:50%;width:9px;height:9px;
+  border-right:2.5px solid var(--slate);border-bottom:2.5px solid var(--slate);
+  transform:translateY(-70%) rotate(45deg);pointer-events:none;
+}
+.field .unit{position:absolute;right:14px;bottom:11px;font-family:var(--display);font-size:14px;font-weight:600;color:var(--mute);letter-spacing:.06em}
+.field .pre{font-family:var(--display);font-size:17px;font-weight:600;color:var(--mute);margin-right:2px}
+.field .inline{display:flex;align-items:center}
+.field.big input{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:-.01em}
+.field.locked{background:#F4F7F9;border-style:dashed}
+.field-2{display:flex;gap:10px}
+.field-2 .field{flex:1}
+.hint{font-size:12.5px;color:var(--slate);margin:-6px 2px 14px;line-height:1.4}
+
+/* ---- checklist ---- */
+.check{
+  display:flex;align-items:center;gap:12px;min-height:var(--tap);
+  padding:0 14px;border-bottom:1px solid var(--line);
+}
+.check:last-child{border-bottom:0}
+.check input{position:absolute;opacity:0;pointer-events:none}
+.check .box{
+  width:26px;height:26px;border-radius:8px;border:2px solid #C2CDD8;flex:none;
+  display:grid;place-items:center;transition:.15s;
+}
+.check .box svg{width:15px;height:15px;fill:#fff;opacity:0;transform:scale(.6);transition:.15s}
+.check input:checked ~ .box{background:var(--green);border-color:var(--green)}
+.check input:checked ~ .box svg{opacity:1;transform:scale(1)}
+.check input:focus-visible ~ .box{outline:3px solid var(--cyan);outline-offset:2px}
+.check span{font-size:15px;font-weight:500}
+
+/* ============================================================ ROUTE LIST */
+.route-item{display:block;width:100%;text-align:left;padding:15px 16px;border-bottom:1px solid var(--line)}
+.route-item:last-child{border-bottom:0}
+.route-item:active{background:var(--blue-tint)}
+.route-top{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.route-code{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:.02em}
+.route-name{font-size:14px;color:var(--slate);margin-bottom:9px}
+.route-meta{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--slate)}
+.route-meta b{font-family:var(--display);font-size:14px;color:var(--ink);letter-spacing:.02em}
+.mini-bar{height:5px;border-radius:3px;background:var(--canvas);overflow:hidden;margin-top:11px}
+.mini-bar i{display:block;height:100%;border-radius:3px;background:var(--cyan);transition:width .5s}
+.mini-bar.done i{background:var(--green)}
+
+/* ============================================================ STOP SPINE
+   Sequence is real information here — stops must be run in order,
+   so the route renders as a literal line with numbered nodes. */
+.spine{position:relative;padding-left:38px}
+.spine::before{
+  content:"";position:absolute;left:14px;top:16px;bottom:16px;width:2px;
+  background:repeating-linear-gradient(180deg,var(--line) 0 6px,transparent 6px 12px);
+}
+.stop{position:relative;margin-bottom:12px}
+.node{
+  position:absolute;left:-38px;top:16px;width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;font-family:var(--display);font-size:14px;font-weight:700;
+  background:var(--canvas);color:var(--slate);border:2px solid var(--canvas);box-shadow:0 0 0 4px var(--canvas);
+}
+.node svg{width:16px;height:16px;fill:#fff}
+.stop.done .node{background:var(--green);color:#fff;border-color:var(--green)}
+.stop.current .node{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+.stop.skipped .node{background:var(--amber);color:#4A3200;border-color:var(--amber)}
+
+.stop-card{background:var(--panel);border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-1);padding:14px}
+.stop.current .stop-card{
+  border:2px solid var(--cyan);box-shadow:0 6px 22px rgba(2,136,209,.20);padding:15px 14px 14px;
+}
+.stop.pending .stop-card{background:#F6F8FA;box-shadow:none;border-color:#E3E9EF}
+.stop.pending .cust{color:var(--slate)}
+.stop.done .stop-card{border-left:4px solid var(--green)}
+.stop-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:3px}
+.cust{font-size:16.5px;font-weight:700;letter-spacing:-.01em;line-height:1.25;flex:1}
+.addr{font-size:13.5px;color:var(--slate);line-height:1.45}
+.stop.current .addr{font-size:14.5px;color:#3D4E5C}
+.stop-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.readout{display:flex;gap:0;margin-top:12px;border-top:1px solid var(--line);padding-top:11px}
+.readout div{flex:1;border-right:1px solid var(--line);padding-right:10px}
+.readout div:last-child{border-right:0;padding-left:12px}
+.readout .k{font-family:var(--display);font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--mute)}
+.readout .v{font-family:var(--display);font-size:19px;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums}
+.readout .v.green{color:var(--green)}
+.stop-note{margin-top:9px;font-size:13px;color:var(--slate);background:var(--canvas);border-radius:var(--r-sm);padding:8px 10px;line-height:1.4}
+.stop .btn{margin-top:13px}
+.eta{font-family:var(--display);font-size:13px;font-weight:600;color:var(--slate);letter-spacing:.04em;white-space:nowrap;padding-top:2px}
+
+/* ============================================================ MAP */
+.mapwrap{position:relative;background:#E6EDF2;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line)}
+.mapwrap svg{display:block;width:100%;height:auto}
+.map-badge{
+  position:absolute;left:12px;top:12px;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);
+  border-radius:999px;padding:6px 12px;font-family:var(--display);font-size:12px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--slate);box-shadow:var(--sh-1);
+}
+.gps-grid{display:flex;gap:10px;margin-top:12px}
+.gps-grid .card{flex:1;padding:12px 13px;margin:0}
+.gps-grid .k{font-family:var(--display);font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--mute)}
+.gps-grid .v{font-family:var(--display);font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+@keyframes ping{0%{r:7;opacity:.55}100%{r:22;opacity:0}}
+.ping{animation:ping 2.2s ease-out infinite}
+
+/* ============================================================ CHAT */
+.chat{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--canvas)}
+.chat-log{flex:1;min-height:0;overflow-y:auto;padding:14px 14px 6px;display:flex;flex-direction:column;gap:9px}
+.msg{max-width:82%;padding:10px 13px;border-radius:16px;font-size:14.5px;line-height:1.45;box-shadow:var(--sh-1)}
+.msg .who{font-family:var(--display);font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;opacity:.65;margin-bottom:3px}
+.msg .t{display:block;font-size:10.5px;opacity:.55;margin-top:5px;font-variant-numeric:tabular-nums}
+.msg.them{align-self:flex-start;background:var(--panel);border-bottom-left-radius:5px}
+.msg.me{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:5px}
+.msg.sys{align-self:center;max-width:92%;background:var(--cyan-tint);border:1.5px solid #9BD3EF;color:#0B4A66;font-size:13px;text-align:center;border-radius:12px}
+.chat-bar{flex:none;background:var(--panel);border-top:1px solid var(--line);padding:10px 12px calc(10px + var(--safe-b));display:flex;gap:9px;align-items:flex-end}
+.chat-bar textarea{
+  flex:1;min-height:46px;max-height:110px;border:1.5px solid var(--line);border-radius:23px;
+  padding:12px 16px;font-size:15px;outline:none;resize:none;background:var(--canvas);line-height:1.35;
+}
+.chat-bar textarea:focus{border-color:var(--blue);background:#fff}
+.icon-btn{width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--canvas);color:var(--slate);border:1.5px solid var(--line)}
+.icon-btn svg{width:21px;height:21px;fill:currentColor}
+.icon-btn.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.icon-btn.rec{background:var(--red);border-color:var(--red);color:#fff;animation:rec 1.1s ease-in-out infinite}
+@keyframes rec{50%{box-shadow:0 0 0 9px rgba(211,47,47,.22)}}
+.voice-strip{display:flex;gap:8px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);align-items:center;flex:none}
+.voice-strip .eyebrow{margin-right:auto}
+.tog{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;background:var(--canvas);border:1.5px solid var(--line);font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--slate)}
+.tog.on{background:var(--green-tint);border-color:var(--green);color:var(--green)}
+.tog svg{width:15px;height:15px;fill:currentColor}
+
+/* ============================================================ PROBLEM LIST */
+.prob{display:flex;gap:12px;padding:14px 15px;border-bottom:1px solid var(--line)}
+.prob:last-child{border-bottom:0}
+.prob-ic{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
+.prob-ic svg{width:20px;height:20px;fill:#fff}
+.prob b{display:block;font-size:15px;margin-bottom:2px}
+.prob p{margin:0;font-size:13px;color:var(--slate);line-height:1.45}
+.prob .t{font-family:var(--display);font-size:11.5px;letter-spacing:.08em;color:var(--mute);margin-top:6px;display:block;text-transform:uppercase}
+.empty{text-align:center;padding:44px 26px;color:var(--slate)}
+.empty svg{width:46px;height:46px;fill:#C6D2DC;margin-bottom:12px}
+.empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:5px}
+.empty p{margin:0;font-size:14px;line-height:1.5}
+
+/* ============================================================ BOTTOM NAV */
+.nav{
+  flex:none;display:flex;background:var(--panel);border-top:1px solid var(--line);
+  padding-bottom:var(--safe-b);box-shadow:0 -2px 12px rgba(14,26,38,.05);z-index:4;
+}
+.nav button{
+  flex:1;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--mute);position:relative;padding-top:4px;
+}
+.nav svg{width:23px;height:23px;fill:currentColor}
+.nav span{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+.nav button.on{color:var(--blue)}
+.nav .badge{
+  position:absolute;top:5px;right:50%;margin-right:-24px;min-width:18px;height:18px;padding:0 5px;
+  border-radius:9px;background:var(--red);color:#fff;font-family:var(--display);font-size:11px;font-weight:700;
+  display:grid;place-items:center;
+}
+
+/* ============================================================ SHEETS */
+.scrim{position:absolute;inset:0;background:rgba(10,20,30,.55);opacity:0;pointer-events:none;transition:opacity .22s;z-index:20;backdrop-filter:blur(2px)}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--canvas);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--sh-3);
+  transform:translateY(101%);transition:transform .3s cubic-bezier(.32,.72,0,1);
+  max-height:94%;display:flex;flex-direction:column;
+}
+.sheet.on{transform:translateY(0)}
+.grab{width:38px;height:4px;border-radius:2px;background:#C6D2DC;margin:9px auto 0;flex:none}
+.sheet-head{padding:12px 18px 13px;border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+.sheet-head h2{font-size:19px}
+.sheet-head .sub{font-size:13.5px;color:var(--slate);margin-top:3px;line-height:1.45}
+.sheet-body{overflow-y:auto;padding:16px 16px 8px;flex:1;min-height:0}
+.sheet-foot{padding:12px 16px calc(14px + var(--safe-b));border-top:1px solid var(--line);background:var(--panel);flex:none}
+.sheet-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+
+/* issue picker */
+.issue{
+  display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:15px;
+  background:var(--panel);border:1.5px solid var(--line);border-radius:var(--r-lg);margin-bottom:11px;
+}
+.issue:active{transform:scale(.99)}
+.issue.sel{border-color:var(--red);background:var(--red-tint)}
+.issue-ic{width:44px;height:44px;border-radius:13px;flex:none;display:grid;place-items:center}
+.issue-ic svg{width:23px;height:23px;fill:#fff}
+.issue b{display:block;font-size:16px;margin-bottom:2px}
+.issue p{margin:0;font-size:13px;color:var(--slate);line-height:1.4}
+
+/* ============================================================ SUMMARY */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.metric{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;box-shadow:var(--sh-1)}
+.metric .k{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--slate);line-height:1.3}
+.metric .v{font-family:var(--display);font-size:32px;font-weight:700;margin-top:6px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.metric .u{font-size:14px;font-weight:600;color:var(--mute);margin-left:3px}
+.metric.wide{grid-column:1/-1}
+.metric.green .v{color:var(--green)}
+.metric.blue .v{color:var(--blue)}
+.hero-tank{background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:18px;text-align:center;margin-bottom:14px}
+.hero-tank .k{font-family:var(--display);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:#7E93A5}
+.hero-tank .v{font-family:var(--display);font-size:52px;font-weight:700;line-height:1;margin:7px 0 2px;letter-spacing:-.02em}
+.hero-tank .s{font-size:13px;color:#9DB2C2}
+
+/* ============================================================ TOAST */
+.toast{
+  position:absolute;left:14px;right:14px;bottom:calc(74px + var(--safe-b));z-index:40;
+  background:var(--ink);color:#fff;border-radius:var(--r-md);padding:13px 15px;
+  font-size:14px;line-height:1.4;box-shadow:var(--sh-2);display:flex;gap:10px;align-items:center;
+  transform:translateY(20px);opacity:0;pointer-events:none;transition:.25s;
+}
+.toast.on{transform:translateY(0);opacity:1}
+.toast svg{width:19px;height:19px;fill:#6FD07A;flex:none}
+.toast.warn svg{fill:var(--amber)}
+
+.splash{position:absolute;inset:0;background:var(--blue);z-index:60;display:grid;place-items:center;transition:opacity .4s}
+.splash.off{opacity:0;pointer-events:none}
+.splash .mark{text-align:center;color:#fff}
+.splash .mark svg{width:62px;height:62px;fill:#fff;margin-bottom:14px}
+.splash .mark b{display:block;font-family:var(--display);font-size:26px;letter-spacing:.08em;text-transform:uppercase}
+.splash .mark span{font-size:13px;color:#BBD9F5;letter-spacing:.05em}
+
+/* ============================================================ AUTH */
+.auth{background:var(--blue)}
+.auth-wrap{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
+.auth-top{padding:calc(var(--safe-t) + 44px) 26px 28px;color:#fff;flex:none}
+.auth-top > svg{width:44px;height:44px;fill:#fff;margin-bottom:15px}
+.auth-top h1{font-family:var(--display);font-size:36px;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.auth-top p{margin:8px 0 0;font-size:14.5px;color:#BBD9F5;line-height:1.5}
+.auth-card{background:var(--canvas);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:24px 18px calc(26px + var(--safe-b));flex:1}
+.field .rev{
+  position:absolute;right:8px;bottom:6px;padding:7px 10px;border-radius:9px;
+  font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--blue);background:var(--blue-tint);
+}
+.check.bare{background:none;border:0;padding:0;margin:2px 2px 16px;min-height:44px}
+.errmsg{
+  display:flex;gap:8px;align-items:center;background:var(--red-tint);color:var(--red);
+  border-radius:var(--r-md);padding:11px 13px;font-size:13.5px;line-height:1.4;margin:-4px 0 14px;
+}
+.field.err{border-color:var(--red)}
+.field.err > span{color:var(--red)}
+
+/* ============================================================ HOME */
+.hero{
+  background:linear-gradient(158deg,#1E86EA 0%,#1976D2 46%,#12579B 100%);
+  color:#fff;border-radius:var(--r-xl);padding:17px 17px 15px;box-shadow:var(--sh-2);
+}
+.hero-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:13px}
+.hero-top .k{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#A8CDF0}
+.hero-top h2{font-size:19px;letter-spacing:-.01em;margin-top:3px;line-height:1.25}
+.hero .pill{background:rgba(255,255,255,.2);color:#fff}
+.hero .btn{margin-top:13px}
+.hero .btn-white{background:#fff;color:var(--blue-dk);box-shadow:0 2px 0 rgba(0,0,0,.14)}
+.hero-line{display:flex;gap:14px;font-size:12.5px;color:#BBD9F5;margin-top:11px}
+.hero-line b{font-family:var(--display);font-size:15px;color:#fff;letter-spacing:.02em}
+.hero.off{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--sh-1)}
+.hero.off .k{color:var(--mute)}
+.hero.off .hero-line{color:var(--slate)}
+.hero.off .hero-line b{color:var(--ink)}
+.hero.off .pill{background:var(--blue-tint);color:var(--blue-dk)}
+
+.strip{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-1)}
+.strip div{flex:1;padding:12px 6px;border-right:1px solid var(--line);text-align:center}
+.strip div:last-child{border-right:0}
+.strip .k{font-family:var(--display);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.strip .v{font-family:var(--display);font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.tile{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;
+  text-align:left;box-shadow:var(--sh-1);min-height:104px;display:flex;flex-direction:column;
+  justify-content:flex-end;position:relative;
+}
+.tile:active{transform:scale(.985)}
+.tile .ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:auto}
+.tile .ic svg{width:20px;height:20px;fill:#fff}
+.tile b{font-size:15px;display:block;margin-top:11px;letter-spacing:-.01em}
+.tile small{font-size:12.5px;color:var(--slate);line-height:1.35;display:block;margin-top:2px}
+.tile .n{
+  position:absolute;top:12px;right:12px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;
+  background:var(--red);color:#fff;font-family:var(--display);font-size:12px;font-weight:700;display:grid;place-items:center;
+}
+.tile.dim{opacity:.55}
+
+/* ============================================================ AVATAR + PROFILE */
+.avatar{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none;
+  font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:.04em;
+  background:rgba(255,255,255,.2);color:#fff;
+}
+.avatar.lg{width:74px;height:74px;border-radius:24px;font-size:29px;background:var(--blue-tint);color:var(--blue)}
+.prof-head{display:flex;gap:15px;align-items:center;padding:4px 2px 6px}
+.prof-head h2{font-size:21px;letter-spacing:-.02em}
+.prof-head p{margin:2px 0 8px;font-size:13.5px;color:var(--slate)}
+
+.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);min-height:var(--tap)}
+.row:last-child{border-bottom:0}
+.row .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--blue-tint);color:var(--blue);flex:none}
+.row .ic svg{width:19px;height:19px;fill:currentColor}
+.row .tx{flex:1;min-width:0}
+.row b{font-size:15px;font-weight:600;display:block;letter-spacing:-.01em}
+.row small{font-size:12.5px;color:var(--slate);display:block;margin-top:1px;line-height:1.35}
+.row .chev{width:8px;height:8px;border-right:2.5px solid #B6C2CD;border-bottom:2.5px solid #B6C2CD;transform:rotate(-45deg);flex:none;margin-left:4px}
+.row .val{font-family:var(--display);font-size:15px;font-weight:600;color:var(--slate);letter-spacing:.02em;white-space:nowrap}
+.row.danger .ic{background:var(--red-tint);color:var(--red)}
+.row.danger b{color:var(--red)}
+button.row:active{background:var(--canvas)}
+
+.sw{width:48px;height:28px;border-radius:14px;background:#C9D4DE;position:relative;transition:background .2s;flex:none}
+.sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(14,26,38,.32)}
+.sw.on{background:var(--green)}
+.sw.on i{left:23px}
+
+/* ============================================================ PASSWORD */
+.reqs{display:grid;gap:7px;margin:-2px 2px 14px}
+.req{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--slate)}
+.req i{width:17px;height:17px;border-radius:50%;border:1.5px solid #C6D2DC;display:grid;place-items:center;flex:none}
+.req i svg{width:10px;height:10px;fill:#fff;opacity:0;transition:.15s}
+.req.ok{color:var(--green)}
+.req.ok i{background:var(--green);border-color:var(--green)}
+.req.ok i svg{opacity:1}
+.meter{height:6px;border-radius:3px;background:#E0E7ED;overflow:hidden;margin:-4px 2px 7px}
+.meter i{display:block;height:100%;width:0;border-radius:3px;transition:width .3s,background .3s}
+.meter-lbl{font-family:var(--display);font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;margin:0 2px 14px}
+
+.navslot{flex:none}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div id="app" role="application" aria-label="CO2 driver route app">
+
+  <!-- ═══════════ SPLASH ═══════════ -->
+  <div class="splash" id="splash">
+    <div class="mark">
+      <svg viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v1.4a5 5 0 0 1 3 4.6v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a5 5 0 0 1 3-4.6V3a1 1 0 0 1 1-1zm-1 8v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9H8z"/></svg>
+      <b>Driver</b><span>CO₂ Route Operations</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ 0a. SIGN IN ═══════════ -->
+  <section class="screen auth" id="s-login" aria-label="Sign in">
+    <div class="auth-wrap">
+      <div class="auth-top">
+        <svg viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v1.4a5 5 0 0 1 3 4.6v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a5 5 0 0 1 3-4.6V3a1 1 0 0 1 1-1zm-1 8v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9H8z"/></svg>
+        <h1>Driver</h1>
+        <p>CO₂ route operations<br>Coldstream Gas &amp; Supply · Depot 7</p>
+      </div>
+      <div class="auth-card">
+        <label class="field">
+          <span>Employee ID or email</span>
+          <input id="l-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="EMP-2264">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+          <button class="rev" id="l-rev" type="button" aria-label="Show password">Show</button>
+        </label>
+        <div id="l-err"></div>
+        <label class="check bare">
+          <input type="checkbox" id="l-keep" checked>
+          <i class="box"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></i>
+          <span>Keep me signed in</span>
+        </label>
+        <button class="btn btn-primary btn-xl" id="btn-login">
+          <svg viewBox="0 0 24 24"><path d="M11 7 9.6 8.4 12.2 11H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9-4h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
+          Sign in
+        </button>
+        <button class="btn btn-ghost" id="btn-forgot" style="margin-top:10px">Forgot password</button>
+        <p class="hint" style="margin:18px 2px 0;text-align:center">Demo build — any password of 4 or more characters signs you in.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 0b. HOME ═══════════ -->
+  <section class="screen" id="s-home" aria-label="Home">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="avatar" id="home-avatar" aria-label="Open profile">ME</button>
+        <div style="flex:1;min-width:0">
+          <div class="tb-title" id="home-greet">Good morning, Marcus</div>
+          <div class="tb-sub" id="home-date">Mon 25 Aug · Depot 7</div>
+        </div>
+        <button class="tb-btn" id="bell-home" aria-label="Dispatch alerts">
+          <svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.83V3a1.5 1.5 0 0 0-3 0v1.17A7 7 0 0 0 5 11v5l-1.6 1.6a1 1 0 0 0 .7 1.7h15.8a1 1 0 0 0 .7-1.7L19 16z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div id="home-hero"></div>
+      <div class="sect"><span class="eyebrow">Today</span><hr></div>
+      <div class="strip" id="home-strip"></div>
+      <div class="sect"><span class="eyebrow">Quick actions</span><hr></div>
+      <div class="quick" id="home-quick"></div>
+      <div class="sect"><span class="eyebrow">From dispatch</span><hr></div>
+      <div class="card" id="home-msg"></div>
+      <div class="sect"><span class="eyebrow">Last 7 days</span><hr></div>
+      <div class="card" id="home-week"></div>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ 1a. ROUTE SELECTION ═══════════ -->
+  <section class="screen" id="s-routes" aria-label="Select route">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="routes-home" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">My Routes</div>
+          <div class="tb-sub" id="greet">Marcus Ellery · Depot 7 · Mon 25 Aug</div>
+        </div>
+        <button class="tb-btn" id="bell-routes" aria-label="Enable dispatch alerts">
+          <svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.83V3a1.5 1.5 0 0 0-3 0v1.17A7 7 0 0 0 5 11v5l-1.6 1.6a1 1 0 0 0 .7 1.7h15.8a1 1 0 0 0 .7-1.7L19 16z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="sect"><span class="eyebrow">Today</span><hr></div>
+      <div class="card" id="routes-today"></div>
+      <div class="sect"><span class="eyebrow">Past routes</span><hr></div>
+      <div class="card" id="routes-past"></div>
+      <p class="hint" style="margin-top:16px">Routes are assigned by dispatch. Tap a past route to review its delivery log.</p>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ 1b. TRUCK INSPECTION / CLOCK IN ═══════════ -->
+  <section class="screen" id="s-inspect" aria-label="Truck inspection and clock in">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="back-routes" aria-label="Back to routes">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">Pre-Trip Inspection</div>
+          <div class="tb-sub" id="inspect-route">RT-4472 · Northline · 5 stops</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="sect"><span class="eyebrow">Vehicle</span><hr></div>
+      <label class="field sel">
+        <span>Assigned truck</span>
+        <select id="f-truck">
+          <option value="TRK-001">TRK-001 · Freightliner M2 · 6,000 lb</option>
+          <option value="TRK-004">TRK-004 · Isuzu NPR · 4,000 lb</option>
+          <option value="TRK-009">TRK-009 · Hino 268 · 8,000 lb</option>
+        </select>
+      </label>
+      <div class="field-2">
+        <label class="field big">
+          <span>Fuel level</span>
+          <input id="f-fuel" type="number" inputmode="numeric" min="0" max="100" value="88">
+          <i class="unit">%</i>
+        </label>
+        <label class="field big">
+          <span>CO₂ on board</span>
+          <input id="f-co2" type="number" inputmode="numeric" min="0" step="10" value="4200">
+          <i class="unit">LBS</i>
+        </label>
+      </div>
+      <p class="hint">Read the tank gauge before you pull out. This sets your starting inventory for the route.</p>
+
+      <div class="sect"><span class="eyebrow">Safety check</span><hr></div>
+      <div class="card" id="checklist"></div>
+      <p class="hint" style="margin-top:11px">All four items must be checked before you can clock in.</p>
+
+      <button class="btn btn-primary btn-xl" id="btn-clockin" disabled style="margin-top:6px">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6V6h-2v7.4l5.2 3.1 1-1.7-4.2-2.2z"/></svg>
+        Clock in &amp; start route
+      </button>
+    </div></div>
+  </section>
+
+  <!-- ═══════════ 2. ACTIVE ROUTE (tabs) ═══════════ -->
+  <section class="screen" id="s-active" aria-label="Active route">
+    <header class="topbar" id="topbar-active">
+      <div class="tb-row">
+        <button class="tb-btn" id="active-home" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3z"/></svg>
+        </button>
+        <div style="flex:1;min-width:0">
+          <div class="tb-title">Driver App</div>
+          <div class="tb-sub" id="active-sub">RT-4472 · TRK-001 · On shift 0:00</div>
+        </div>
+        <button class="tb-btn" id="btn-pause" aria-label="Pause route" aria-pressed="false">
+          <svg viewBox="0 0 24 24" id="pause-ic"><path d="M8 5h3v14H8zm5 0h3v14h-3z"/></svg>
+        </button>
+      </div>
+      <!-- SIGNATURE: tank gauge doubles as route progress -->
+      <div class="gauge">
+        <div class="gauge-head">
+          <span class="gauge-label">On truck</span>
+          <span class="gauge-read"><span id="g-lbs">4,200</span> <small>LBS CO₂</small></span>
+        </div>
+        <div class="ticks" id="ticks" role="img" aria-label="CO2 remaining on truck"></div>
+        <div class="gauge-foot">
+          <span><b id="g-stops">0/5</b> stops complete</span>
+          <span id="g-delivered">0 lb delivered</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab: ROUTE -->
+    <div class="scroll" id="tab-route"><div class="pad">
+      <div id="banners"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <button class="btn btn-danger" id="btn-problem">
+          <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg>
+          Report problem
+        </button>
+        <button class="btn btn-primary btn-xl" id="btn-next">
+          <svg viewBox="0 0 24 24"><path d="M21.7 11.3 12.7 2.3a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM13 14v-2.5h-3V15H8v-4.5a1 1 0 0 1 1-1h4V7l3.5 3.5L13 14z"/></svg>
+          Next stop
+        </button>
+      </div>
+      <div class="sect"><span class="eyebrow">Stop sequence</span><hr></div>
+      <div class="spine" id="stops"></div>
+      <div id="finish-wrap"></div>
+    </div></div>
+
+    <!-- Tab: MAP -->
+    <div class="scroll" id="tab-map" style="display:none"><div class="pad">
+      <div class="mapwrap">
+        <div class="map-badge" id="map-badge">Locating…</div>
+        <svg id="map-svg" viewBox="0 0 360 330" aria-label="Route map"></svg>
+      </div>
+      <div class="gps-grid">
+        <div class="card"><div class="k">To next stop</div><div class="v" id="gps-dist">—</div></div>
+        <div class="card"><div class="k">Speed</div><div class="v" id="gps-speed">—</div></div>
+      </div>
+      <div class="gps-grid">
+        <div class="card"><div class="k">Latitude</div><div class="v" id="gps-lat" style="font-size:15px">—</div></div>
+        <div class="card"><div class="k">Longitude</div><div class="v" id="gps-lng" style="font-size:15px">—</div></div>
+      </div>
+      <p class="hint" id="gps-note" style="margin-top:12px">Live position updates while the app is open.</p>
+      <button class="btn btn-cyan" id="btn-navigate" style="margin-bottom:10px">
+        <svg viewBox="0 0 24 24"><path d="m21 3-8 18-2.5-7.5L3 11z"/></svg>
+        Open turn-by-turn
+      </button>
+      <button class="btn btn-ghost" id="btn-recenter">Re-center on me</button>
+    </div></div>
+
+    <!-- Tab: CHAT -->
+    <div class="chat" id="tab-chat" style="display:none">
+      <div class="voice-strip">
+        <span class="eyebrow">Dispatch · Reina O.</span>
+        <button class="tog" id="tog-tts" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9H4zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+          Read aloud
+        </button>
+        <button class="tog" id="tog-hands" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-4 4.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 7 11h2a3 3 0 0 0 6 0h2z"/></svg>
+          Hands-free
+        </button>
+      </div>
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div class="chat-bar">
+        <button class="icon-btn" id="btn-mic" aria-label="Dictate message">
+          <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-4 4.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 7 11h2a3 3 0 0 0 6 0h2z"/></svg>
+        </button>
+        <textarea id="chat-input" rows="1" placeholder="Message dispatch…" aria-label="Message dispatch"></textarea>
+        <button class="icon-btn on" id="btn-send" aria-label="Send message">
+          <svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: PROBLEMS -->
+    <div class="scroll" id="tab-problems" style="display:none"><div class="pad">
+      <div class="sect"><span class="eyebrow">Logged this shift</span><hr></div>
+      <div class="card" id="problems-list"></div>
+      <button class="btn btn-danger" id="btn-problem-2" style="margin-top:16px">
+        <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg>
+        Report problem
+      </button>
+    </div></div>
+
+    <nav class="nav" id="nav" aria-label="Sections">
+      <button data-tab="route" class="on"><svg viewBox="0 0 24 24"><path d="M6.5 2a3.5 3.5 0 0 0-1 6.86V15a1 1 0 0 0 1 1H14a1.5 1.5 0 0 1 0 3H9.9a3.5 3.5 0 1 0 0 2H14a3.5 3.5 0 0 0 0-7H7.5V8.86A3.5 3.5 0 0 0 6.5 2zm11 8a3.5 3.5 0 0 0-3.5 3.5c0 2.4 3.5 6.5 3.5 6.5s3.5-4.1 3.5-6.5A3.5 3.5 0 0 0 17.5 10z"/></svg><span>Route</span></button>
+      <button data-tab="map"><svg viewBox="0 0 24 24"><path d="m15 5-6-2-6 2v16l6-2 6 2 6-2V3l-6 2zm0 14-6-2V5l6 2v12z"/></svg><span>Map</span></button>
+      <button data-tab="chat"><svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM7 9h10v2H7V9zm7 5H7v-2h7v2zm3-6H7V6h10v2z"/></svg><span>Chat</span><i class="badge" id="badge-chat" hidden>1</i></button>
+      <button data-tab="problems"><svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg><span>Problems</span><i class="badge" id="badge-prob" hidden>0</i></button>
+    </nav>
+  </section>
+
+  <!-- ═══════════ 5. WRAP-UP ═══════════ -->
+  <section class="screen" id="s-wrap" aria-label="Route summary">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <div style="flex:1">
+          <div class="tb-title">Route Complete</div>
+          <div class="tb-sub" id="wrap-sub">RT-4472 · TRK-001</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="hero-tank">
+        <div class="k">CO₂ delivered</div>
+        <div class="v" id="w-co2">0</div>
+        <div class="s">pounds across <span id="w-stops">0</span> stops</div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="k">Driving time</div><div class="v" id="w-time">0:00</div></div>
+        <div class="metric"><div class="k">Mileage</div><div class="v" id="w-miles">0<span class="u">mi</span></div></div>
+        <div class="metric green"><div class="k">Money collected</div><div class="v" id="w-cash">$0</div></div>
+        <div class="metric blue"><div class="k">Tank remaining</div><div class="v" id="w-left">0<span class="u">lb</span></div></div>
+        <div class="metric wide"><div class="k">Issues reported</div><div class="v" id="w-probs">0</div></div>
+      </div>
+      <div class="sect"><span class="eyebrow">Delivery log</span><hr></div>
+      <div class="card" id="wrap-log"></div>
+      <button class="btn btn-primary btn-xl" id="btn-clockout" style="margin-top:20px">
+        <svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+        Submit &amp; clock out
+      </button>
+      <button class="btn btn-ghost" id="btn-back-route" style="margin-top:10px">Back to route</button>
+    </div></div>
+  </section>
+
+  <!-- ═══════════ 6. PROFILE ═══════════ -->
+  <section class="screen" id="s-profile" aria-label="Profile">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="prof-back" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">Profile</div>
+          <div class="tb-sub" id="prof-sub">EMP-2264 · Depot 7</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="prof-head">
+        <div class="avatar lg" id="prof-initials">ME</div>
+        <div style="min-width:0">
+          <h2 id="prof-name">Marcus Ellery</h2>
+          <p id="prof-role">CO₂ Delivery Driver · since Mar 2021</p>
+          <div id="prof-status"></div>
+        </div>
+      </div>
+
+      <div class="sect"><span class="eyebrow">Personal details</span><hr></div>
+      <div class="field-2">
+        <label class="field"><span>First name</span><input id="p-first" type="text" autocomplete="given-name"></label>
+        <label class="field"><span>Last name</span><input id="p-last" type="text" autocomplete="family-name"></label>
+      </div>
+      <label class="field"><span>Mobile</span><input id="p-phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+      <label class="field"><span>Email</span><input id="p-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="email"></label>
+      <div id="p-perr"></div>
+      <button class="btn btn-primary" id="btn-save-profile">
+        <svg viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 3-3 3 3 0 0 1-3 3zm3-10H5V5h10v4z"/></svg>
+        Save changes
+      </button>
+
+      <div class="sect"><span class="eyebrow">Work &amp; credentials</span><hr></div>
+      <div class="card" id="prof-work"></div>
+
+      <div class="sect"><span class="eyebrow">Preferences</span><hr></div>
+      <div class="card" id="prof-prefs"></div>
+
+      <div class="sect"><span class="eyebrow">Security</span><hr></div>
+      <div class="card" id="prof-sec"></div>
+
+      <p class="hint" style="margin-top:16px;text-align:center">Driver App v1.0 · MVP build<br><span id="prof-cache">Offline cache active</span></p>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ SHEETS ═══════════ -->
+  <div class="scrim" id="scrim"></div>
+
+  <!-- CHANGE PASSWORD -->
+  <div class="sheet" id="sheet-password" role="dialog" aria-modal="true" aria-labelledby="pw-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="pw-title">Change password</h2>
+      <p class="sub">You'll stay signed in on this device. Other devices are signed out.</p>
+    </div>
+    <div class="sheet-body">
+      <label class="field">
+        <span>Current password</span>
+        <input id="pw-cur" type="password" autocomplete="current-password" placeholder="••••••••">
+        <button class="rev" data-rev="pw-cur" type="button">Show</button>
+      </label>
+      <label class="field">
+        <span>New password</span>
+        <input id="pw-new" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+        <button class="rev" data-rev="pw-new" type="button">Show</button>
+      </label>
+      <div class="meter"><i id="pw-meter"></i></div>
+      <div class="meter-lbl" id="pw-strength" style="color:var(--mute)">Strength</div>
+      <div class="reqs" id="pw-reqs"></div>
+      <label class="field">
+        <span>Confirm new password</span>
+        <input id="pw-conf" type="password" autocomplete="new-password" placeholder="Type it again">
+      </label>
+      <div id="pw-err"></div>
+    </div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-primary" id="btn-save-pw" style="flex:1.6">Update password</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGN OUT -->
+  <div class="sheet" id="sheet-signout" role="dialog" aria-modal="true" aria-labelledby="so-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="so-title">Sign out</h2>
+      <p class="sub" id="so-sub">You'll need your password to get back in.</p>
+    </div>
+    <div class="sheet-body" id="so-body"></div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Stay signed in</button>
+        <button class="btn btn-danger" id="btn-do-signout" style="flex:1.4">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. RECORD DELIVERY -->
+  <div class="sheet" id="sheet-deliver" role="dialog" aria-modal="true" aria-labelledby="dlv-cust">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="dlv-cust">—</h2>
+      <p class="sub" id="dlv-addr">—</p>
+      <div class="sheet-tags" id="dlv-tags"></div>
+    </div>
+    <div class="sheet-body">
+      <label class="field big">
+        <span>CO₂ delivered</span>
+        <input id="d-lbs" type="number" inputmode="decimal" min="0" step="1">
+        <i class="unit">LBS</i>
+      </label>
+      <p class="hint" id="d-expect">Expected 400 lb · tank has 4,200 lb</p>
+      <label class="field big" id="d-cash-field">
+        <span>Payment collected</span>
+        <div class="inline"><i class="pre">$</i><input id="d-cash" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      </label>
+      <p class="hint" id="d-cashnote">Cash on delivery — collect before you leave the site.</p>
+      <label class="field">
+        <span>Notes <i style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</i></span>
+        <textarea id="d-notes" rows="3" placeholder="Fittings, access, who signed…"></textarea>
+      </label>
+    </div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-green" id="btn-save-delivery" style="flex:1.6">Save delivery</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. REPORT PROBLEM -->
+  <div class="sheet" id="sheet-problem" role="dialog" aria-modal="true" aria-labelledby="prob-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="prob-title">Report a problem</h2>
+      <p class="sub">Dispatch sees this immediately and will re-optimize the rest of your route.</p>
+    </div>
+    <div class="sheet-body" id="prob-body"></div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-danger" id="btn-send-problem" style="flex:1.6" disabled>Send to dispatch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAST ROUTE VIEW -->
+  <div class="sheet" id="sheet-past" role="dialog" aria-modal="true" aria-labelledby="past-title">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2 id="past-title">—</h2><p class="sub" id="past-sub">—</p></div>
+    <div class="sheet-body" id="past-body"></div>
+    <div class="sheet-foot"><button class="btn btn-ghost" data-close>Close</button></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
