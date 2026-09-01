@@ -59,7 +59,7 @@ const S = {
   route: null, truck: 'TRK-001', fuel: 88,
   co2Start: 4200, co2Now: 4200,
   drive: { state: 'idle', prog: 0, follow: true, legFrom: null, checks: {} },
-  sos: false, voiceMode: 'chat', voiceText: '',
+  sos: false, geoFar: false, voiceMode: 'chat', voiceText: '',
   paused: false, routeDone: false, shiftSec: 0, breakSec: 0, breakReason: '', miles: 0, doneOpen: false,
   problems: [], msgs: [], unread: 0,
   activeStop: null, pickedIssue: null,
@@ -390,7 +390,7 @@ function renderStops() {
 document.addEventListener('click', e => {
   const d = e.target.closest('[data-deliver]');
   if (d) { openDelivery(S.route.stops.find(s => s.id === d.dataset.deliver)); return; }
-  if (e.target.closest('[data-nav]')) launchNav();
+  if (e.target.closest('[data-nav]')) { setTab('map'); if (S.drive.state === 'idle' && !S.paused) startDrive(); }
 });
 
 /* ============================================================ 3. RECORD DELIVERY */
@@ -829,10 +829,14 @@ function startGeo() {
   if (!('geolocation' in navigator)) { seedGeo(); return; }
   watchId = navigator.geolocation.watchPosition(pos => {
     const { latitude: lat, longitude: lng, accuracy: acc, speed } = pos.coords;
+    /* Demo stops are in Sacramento. If the real fix is nowhere near the route,
+       keep the simulated truck rather than reporting a 6,989-mile leg. */
+    S.geoFar = haversine({ lat, lng }, DEPOTS[0]) > 60;
+    if (S.geoFar) { S.geo.ok = false; if (S.geo.lat == null) seedGeo(); renderMap(); renderDrive(); return; }
     if (lastFix) { const d = haversine(lastFix, { lat, lng }); if (d < 2) S.miles += d; }
     lastFix = { lat, lng };
     S.geo = { lat, lng, acc, speed: speed ? speed * 2.23694 : 0, ok: true };
-    if (S.drive.state === 'driving' && S.activeStop && haversine(S.geo, S.activeStop) < 0.12) arriveAtStop();
+    if (S.drive.state === 'driving' && S.activeStop && !S.geoFar && haversine(S.geo, S.activeStop) < 0.12) arriveAtStop();
     renderMap(); renderDrive();
     if (S.screen === 'active' && S.tab === 'route') renderStops();
   }, () => { S.geo.ok = false; seedGeo(); },
@@ -859,7 +863,6 @@ function startDrive() {
   S.drive.prog = 0;
   renderMap(); renderDrive();
   toast(`Navigating to ${S.activeStop.cust}.`);
-  launchNav();
   runSim();
 }
 function stopDrive() {
@@ -891,6 +894,7 @@ function arriveAtStop() {
   S.drive.checks = { parked: false, filled: false, paid: false };
   renderMap(); renderDrive();
   toast(`Arrived at ${S.activeStop.cust}.`);
+  setTimeout(() => { const z = $('.drive-actions'); if (z) z.scrollTop = z.scrollHeight; }, 120);
   notify('Arrived', `${S.activeStop.cust} — confirm the delivery when you're done.`);
   if (S.tts) speak(`Arriving at ${S.activeStop.cust}.`);
 }
@@ -953,14 +957,18 @@ function renderDrive() {
         <div class="k">${S.drive.state === 'arrived' ? 'Arrived at' : 'Next delivery'}</div>
         <b>${cur.cust}</b><small>${cur.addr}, ${cur.city.split(',')[0]}</small>
       </div>
-      <div class="dist"><div class="v">${d < 0.1 ? '0.0' : d.toFixed(1)}</div><span class="u">mi · ${etaMinutes(d)} min</span></div>`;
+      ${S.drive.state === 'arrived'
+        ? '<div class="dist"><div class="v" style="font-size:15px;color:hsl(var(--success))">Here</div><span class="u">On site</span></div>'
+        : `<div class="dist"><div class="v">${d.toFixed(1)}</div><span class="u">mi · ${etaMinutes(d)} min</span></div>`}`;
   }
 
   const chip = $('#mapchip');
   chip.classList.toggle('sim', !S.geo.ok);
-  chip.innerHTML = `<i></i><span>${S.geo.ok ? 'Live GPS · ' + Math.round(S.geo.speed) + ' mph' : 'Simulated drive'}</span>`;
+  chip.innerHTML = `<i></i><span>${S.geoFar ? 'Demo route · GPS off area'
+    : S.geo.ok ? 'Live GPS · ' + Math.round(S.geo.speed) + ' mph' : 'Simulated drive'}</span>`;
 
   /* the one big control */
+  $('#tab-map').classList.toggle('arrived', S.drive.state === 'arrived');
   const cta = $('#drive-cta');
   if (!cur) {
     cta.innerHTML = `<button class="bigcta done" id="cta-main">
@@ -1088,7 +1096,7 @@ $('#mt-follow').onclick = e => {
   renderMap();
   toast(S.drive.follow ? 'Following your position.' : 'Showing the whole route.');
 };
-$('#mt-turn').onclick = () => launchNav();
+$('#mt-turn').onclick = () => { toast('Opening your maps app for turn-by-turn.'); launchNav(); };
 function launchNav() {
   const s = S.activeStop;
   if (!s) { toast('No stop left to navigate to.', true); return; }
