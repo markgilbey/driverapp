@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Driver App — CO₂ Route</title>
+<meta name="theme-color" content="#0D6EFD">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Driver">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app" role="application" aria-label="CO2 driver route app">
+
+  <!-- ═══════════ SPLASH ═══════════ -->
+  <div class="splash" id="splash">
+    <div class="mark">
+      <svg viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v1.4a5 5 0 0 1 3 4.6v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a5 5 0 0 1 3-4.6V3a1 1 0 0 1 1-1zm-1 8v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9H8z"/></svg>
+      <b>Driver</b><span>CO₂ Route Operations</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ 0a. SIGN IN ═══════════ -->
+  <section class="screen auth" id="s-login" aria-label="Sign in">
+    <div class="auth-wrap">
+      <div class="auth-top">
+        <svg viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v1.4a5 5 0 0 1 3 4.6v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a5 5 0 0 1 3-4.6V3a1 1 0 0 1 1-1zm-1 8v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9H8z"/></svg>
+        <h1>Driver</h1>
+        <p>CO₂ route operations<br>Coldstream Gas &amp; Supply · Depot 7</p>
+      </div>
+      <div class="auth-card">
+        <label class="field">
+          <span>Employee ID or email</span>
+          <input id="l-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="EMP-2264">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+          <button class="rev" id="l-rev" type="button" aria-label="Show password">Show</button>
+        </label>
+        <div id="l-err"></div>
+        <label class="check bare">
+          <input type="checkbox" id="l-keep" checked>
+          <i class="box"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></i>
+          <span>Keep me signed in</span>
+        </label>
+        <button class="btn btn-primary btn-xl" id="btn-login">
+          <svg viewBox="0 0 24 24"><path d="M11 7 9.6 8.4 12.2 11H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9-4h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
+          Sign in
+        </button>
+        <button class="btn btn-ghost" id="btn-forgot" style="margin-top:10px">Forgot password</button>
+        <p class="hint" style="margin:18px 2px 0;text-align:center">Demo build — any password of 4 or more characters signs you in.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 0b. HOME ═══════════ -->
+  <section class="screen" id="s-home" aria-label="Home">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="avatar" id="home-avatar" aria-label="Open profile">ME</button>
+        <div style="flex:1;min-width:0">
+          <div class="tb-title" id="home-greet">Good morning, Marcus</div>
+          <div class="tb-sub" id="home-date">Mon 25 Aug · Depot 7</div>
+        </div>
+        <button class="tb-btn" id="bell-home" aria-label="Dispatch alerts">
+          <svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.83V3a1.5 1.5 0 0 0-3 0v1.17A7 7 0 0 0 5 11v5l-1.6 1.6a1 1 0 0 0 .7 1.7h15.8a1 1 0 0 0 .7-1.7L19 16z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div id="home-hero"></div>
+      <div class="sect"><span class="eyebrow">Today</span><hr></div>
+      <div class="strip" id="home-strip"></div>
+      <div class="sect"><span class="eyebrow">Quick actions</span><hr></div>
+      <div class="quick" id="home-quick"></div>
+      <div class="sect"><span class="eyebrow">From dispatch</span><hr></div>
+      <div class="card" id="home-msg"></div>
+      <div class="sect"><span class="eyebrow">Last 7 days</span><hr></div>
+      <div class="card" id="home-week"></div>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ 1a. ROUTE SELECTION ═══════════ -->
+  <section class="screen" id="s-routes" aria-label="Today's route">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="routes-home" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">My Route</div>
+          <div class="tb-sub" id="greet">Marcus Ellery · Depot 7 · Mon 25 Aug</div>
+        </div>
+        <button class="tb-btn" id="bell-routes" aria-label="Enable dispatch alerts">
+          <svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.83V3a1.5 1.5 0 0 0-3 0v1.17A7 7 0 0 0 5 11v5l-1.6 1.6a1 1 0 0 0 .7 1.7h15.8a1 1 0 0 0 .7-1.7L19 16z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div id="today-card"></div>
+      <div class="sect"><span class="eyebrow" id="man-label">Manifest</span><hr></div>
+      <div class="upnext" id="manifest"></div>
+      <div class="sect"><span class="eyebrow">Past shifts</span><hr></div>
+      <div class="card" id="routes-past"></div>
+      <p class="hint" style="margin-top:16px">One route per driver per day, assigned by dispatch the night before. Tap a past shift to review its delivery log.</p>
+      <button class="btn btn-ghost" id="btn-demo">Demo · jump to a mid-route state</button>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ 1b. TRUCK INSPECTION / CLOCK IN ═══════════ -->
+  <section class="screen" id="s-inspect" aria-label="Truck inspection and clock in">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="back-routes" aria-label="Back to my route">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">Pre-Trip Inspection</div>
+          <div class="tb-sub" id="inspect-route">RT-4472 · Northline · 5 stops</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="sect"><span class="eyebrow">Vehicle</span><hr></div>
+      <label class="field sel">
+        <span>Assigned truck</span>
+        <select id="f-truck">
+          <option value="TRK-001">TRK-001 · Freightliner M2 · 6,000 lb</option>
+          <option value="TRK-004">TRK-004 · Isuzu NPR · 4,000 lb</option>
+          <option value="TRK-009">TRK-009 · Hino 268 · 8,000 lb</option>
+        </select>
+      </label>
+      <div class="field-2">
+        <label class="field big">
+          <span>Fuel level</span>
+          <input id="f-fuel" type="number" inputmode="numeric" min="0" max="100" value="88">
+          <i class="unit">%</i>
+        </label>
+        <label class="field big">
+          <span>CO₂ on board</span>
+          <input id="f-co2" type="number" inputmode="numeric" min="0" step="10" value="4200">
+          <i class="unit">LBS</i>
+        </label>
+      </div>
+      <p class="hint">Read the tank gauge before you pull out. This sets your starting inventory for the route.</p>
+
+      <div class="sect"><span class="eyebrow">Safety check</span><hr></div>
+      <div class="card" id="checklist"></div>
+      <p class="hint" style="margin-top:11px">All four items must be checked before you can clock in.</p>
+
+      <button class="btn btn-primary btn-xl" id="btn-clockin" disabled style="margin-top:6px">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6V6h-2v7.4l5.2 3.1 1-1.7-4.2-2.2z"/></svg>
+        Clock in &amp; start route
+      </button>
+    </div></div>
+  </section>
+
+  <!-- ═══════════ 2. ACTIVE ROUTE (tabs) ═══════════ -->
+  <section class="screen" id="s-active" aria-label="Active route">
+    <header class="topbar" id="topbar-active">
+      <div class="tb-row">
+        <button class="tb-btn" id="active-home" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3z"/></svg>
+        </button>
+        <div style="flex:1;min-width:0">
+          <div class="tb-title">Driver App</div>
+          <div class="tb-sub" id="active-sub">RT-4472 · TRK-001 · On shift 0:00</div>
+        </div>
+        <button class="tb-btn" id="btn-pause" aria-label="Pause route" aria-pressed="false">
+          <svg viewBox="0 0 24 24" id="pause-ic"><path d="M8 5h3v14H8zm5 0h3v14h-3z"/></svg>
+        </button>
+      </div>
+      <!-- SIGNATURE: tank gauge doubles as route progress -->
+      <div class="gauge">
+        <div class="gauge-head">
+          <span class="gauge-label">On truck</span>
+          <span class="gauge-read"><span id="g-lbs">4,200</span> <small>LBS CO₂</small></span>
+        </div>
+        <div class="ticks" id="ticks" role="img" aria-label="CO2 remaining on truck"></div>
+        <div class="gauge-foot">
+          <span><b id="g-stops">0/5</b> stops complete</span>
+          <span id="g-delivered">0 lb delivered</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab: ROUTE -->
+    <div class="scroll" id="tab-route"><div class="pad">
+      <div id="banners"></div>
+      <div id="pause-card"></div>
+      <div id="done-strip"></div>
+      <div id="current-wrap"></div>
+      <div id="next-wrap"></div>
+      <div id="finish-wrap"></div>
+      <button class="btn btn-ghost" id="btn-break" style="margin-top:16px">
+        <svg viewBox="0 0 24 24" style="fill:#B07A00"><path d="M8 5h3v14H8zm5 0h3v14h-3z"/></svg>
+        <span id="break-label">Pause route</span>
+      </button>
+    </div></div>
+
+    <!-- Tab: MAP — the navigation screen the shift runs on -->
+    <div class="drive" id="tab-map" style="display:none">
+
+      <!-- truck & tank status bar -->
+      <div class="drive-status">
+        <div class="dstat" style="flex:none">
+          <span class="k">Truck</span>
+          <span class="v" id="d-truck">TRK-001</span>
+        </div>
+        <div class="dsep"></div>
+        <div class="dstat" style="flex:1;min-width:0">
+          <span class="k">Tank on board</span>
+          <span class="v"><span id="d-tanklbs">4,200</span> lb</span>
+          <span class="dsbar"><i id="d-tank" style="width:100%"></i></span>
+        </div>
+        <div class="dsep"></div>
+        <div class="dstat" style="flex:none;text-align:right">
+          <span class="k">Fuel</span>
+          <span class="v" id="d-fuel">88%</span>
+        </div>
+        <div class="dsep"></div>
+        <div class="dstat" style="flex:none;text-align:right">
+          <span class="k">Stop</span>
+          <span class="v" id="d-stop">1 / 5</span>
+        </div>
+      </div>
+
+      <!-- map + overlays -->
+      <div class="drive-map">
+        <svg id="map-svg" preserveAspectRatio="xMidYMid slice" aria-label="Route map"></svg>
+        <div class="navcard" id="navcard"></div>
+        <div class="reopt" id="reopt"></div>
+        <div class="mapchip" id="mapchip"><i></i><span>Locating…</span></div>
+        <div class="maptools">
+          <button class="mtool" id="mt-turn" aria-label="Open turn-by-turn directions">
+            <svg viewBox="0 0 24 24"><path d="m21 3-8 18-2.5-7.5L3 11z"/></svg>
+          </button>
+          <button class="mtool on" id="mt-follow" aria-label="Follow my position" aria-pressed="true">
+            <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 4 4 4 4 0 0 0-4-4zm9 3h-2.06A7 7 0 0 0 13 5.06V3h-2v2.06A7 7 0 0 0 5.06 11H3v2h2.06A7 7 0 0 0 11 18.94V21h2v-2.06A7 7 0 0 0 18.94 13H21z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- action zone: safety first, then the one big control -->
+      <div class="drive-actions">
+        <div class="acts">
+          <button class="act sos" id="act-sos">
+            <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg>SOS
+          </button>
+          <button class="act chat" id="act-chat">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>Dispatch
+            <i class="n" id="act-badge" hidden>0</i>
+          </button>
+          <button class="act mic" id="act-mic">
+            <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-4 4.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 7 11h2a3 3 0 0 0 6 0h2z"/></svg>Voice
+          </button>
+        </div>
+        <div id="drive-cta"></div>
+      </div>
+    </div>
+
+    <!-- Tab: CHAT -->
+    <div class="chat" id="tab-chat" style="display:none">
+      <div class="voice-strip">
+        <span class="eyebrow">Dispatch · Reina O.</span>
+        <button class="tog" id="tog-tts" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 5V4L8 9H4zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+          Read aloud
+        </button>
+        <button class="tog" id="tog-hands" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-4 4.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 7 11h2a3 3 0 0 0 6 0h2z"/></svg>
+          Hands-free
+        </button>
+      </div>
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div class="chat-bar">
+        <button class="icon-btn" id="btn-mic" aria-label="Dictate message">
+          <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-4 4.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 7 11h2a3 3 0 0 0 6 0h2z"/></svg>
+        </button>
+        <textarea id="chat-input" rows="1" placeholder="Message dispatch…" aria-label="Message dispatch"></textarea>
+        <button class="icon-btn on" id="btn-send" aria-label="Send message">
+          <svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: PROBLEMS -->
+    <div class="scroll" id="tab-problems" style="display:none"><div class="pad">
+      <div class="sect"><span class="eyebrow">Logged this shift</span><hr></div>
+      <div class="card" id="problems-list"></div>
+      <button class="btn btn-danger" id="btn-problem-2" style="margin-top:16px">
+        <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg>
+        Report problem
+      </button>
+    </div></div>
+
+    <nav class="nav" id="nav" aria-label="Sections">
+      <button data-tab="route" class="on"><svg viewBox="0 0 24 24"><path d="M6.5 2a3.5 3.5 0 0 0-1 6.86V15a1 1 0 0 0 1 1H14a1.5 1.5 0 0 1 0 3H9.9a3.5 3.5 0 1 0 0 2H14a3.5 3.5 0 0 0 0-7H7.5V8.86A3.5 3.5 0 0 0 6.5 2zm11 8a3.5 3.5 0 0 0-3.5 3.5c0 2.4 3.5 6.5 3.5 6.5s3.5-4.1 3.5-6.5A3.5 3.5 0 0 0 17.5 10z"/></svg><span>Route</span></button>
+      <button data-tab="map"><svg viewBox="0 0 24 24"><path d="m15 5-6-2-6 2v16l6-2 6 2 6-2V3l-6 2zm0 14-6-2V5l6 2v12z"/></svg><span>Map</span></button>
+      <button data-tab="chat"><svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM7 9h10v2H7V9zm7 5H7v-2h7v2zm3-6H7V6h10v2z"/></svg><span>Chat</span><i class="badge" id="badge-chat" hidden>1</i></button>
+      <button data-tab="problems"><svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg><span>Problems</span><i class="badge" id="badge-prob" hidden>0</i></button>
+    </nav>
+  </section>
+
+  <!-- ═══════════ 5. WRAP-UP ═══════════ -->
+  <section class="screen" id="s-wrap" aria-label="Route summary">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <div style="flex:1">
+          <div class="tb-title">Route Complete</div>
+          <div class="tb-sub" id="wrap-sub">RT-4472 · TRK-001</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="hero-tank">
+        <div class="k">CO₂ delivered</div>
+        <div class="v" id="w-co2">0</div>
+        <div class="s">pounds across <span id="w-stops">0</span> stops</div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="k">Driving time</div><div class="v" id="w-time">0:00</div></div>
+        <div class="metric"><div class="k">Break time</div><div class="v" id="w-break">0:00</div></div>
+        <div class="metric"><div class="k">Mileage</div><div class="v" id="w-miles">0<span class="u">mi</span></div></div>
+        <div class="metric green"><div class="k">Money collected</div><div class="v" id="w-cash">$0</div></div>
+        <div class="metric blue"><div class="k">Tank remaining</div><div class="v" id="w-left">0<span class="u">lb</span></div></div>
+        <div class="metric wide"><div class="k">Issues reported</div><div class="v" id="w-probs">0</div></div>
+      </div>
+      <div class="sect"><span class="eyebrow">Delivery log</span><hr></div>
+      <div class="card" id="wrap-log"></div>
+      <button class="btn btn-primary btn-xl" id="btn-clockout" style="margin-top:20px">
+        <svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+        Submit &amp; clock out
+      </button>
+      <button class="btn btn-ghost" id="btn-back-route" style="margin-top:10px">Back to route</button>
+    </div></div>
+  </section>
+
+  <!-- ═══════════ 4. REPORT A PROBLEM (full screen) ═══════════ -->
+  <section class="screen" id="s-problem" aria-label="Report a problem">
+    <header class="topbar plain" style="background:hsl(var(--destructive))">
+      <div class="tb-row">
+        <button class="tb-btn" id="prob-back" aria-label="Back">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1;min-width:0">
+          <div class="tb-title" id="prob-h">Report a Problem</div>
+          <div class="tb-sub" id="prob-s">Dispatch sees this the moment you send it</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad" id="prob-pane"></div></div>
+    <div class="sheet-foot" id="prob-foot" hidden>
+      <button class="btn btn-danger btn-xl" id="btn-send-problem">Send to dispatch</button>
+    </div>
+  </section>
+
+  <!-- ═══════════ 6. PROFILE ═══════════ -->
+  <section class="screen" id="s-profile" aria-label="Profile">
+    <header class="topbar plain">
+      <div class="tb-row">
+        <button class="tb-btn" id="prof-back" aria-label="Back to home">
+          <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+        </button>
+        <div style="flex:1">
+          <div class="tb-title">Profile</div>
+          <div class="tb-sub" id="prof-sub">EMP-2264 · Depot 7</div>
+        </div>
+      </div>
+    </header>
+    <div class="scroll"><div class="pad">
+      <div class="prof-head">
+        <div class="avatar lg" id="prof-initials">ME</div>
+        <div style="min-width:0">
+          <h2 id="prof-name">Marcus Ellery</h2>
+          <p id="prof-role">CO₂ Delivery Driver · since Mar 2021</p>
+          <div id="prof-status"></div>
+        </div>
+      </div>
+
+      <div class="sect"><span class="eyebrow">Personal details</span><hr></div>
+      <div class="field-2">
+        <label class="field"><span>First name</span><input id="p-first" type="text" autocomplete="given-name"></label>
+        <label class="field"><span>Last name</span><input id="p-last" type="text" autocomplete="family-name"></label>
+      </div>
+      <label class="field"><span>Mobile</span><input id="p-phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+      <label class="field"><span>Email</span><input id="p-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="email"></label>
+      <div id="p-perr"></div>
+      <button class="btn btn-primary" id="btn-save-profile">
+        <svg viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 3-3 3 3 0 0 1-3 3zm3-10H5V5h10v4z"/></svg>
+        Save changes
+      </button>
+
+      <div class="sect"><span class="eyebrow">Work &amp; credentials</span><hr></div>
+      <div class="card" id="prof-work"></div>
+
+      <div class="sect"><span class="eyebrow">Preferences</span><hr></div>
+      <div class="card" id="prof-prefs"></div>
+
+      <div class="sect"><span class="eyebrow">Security</span><hr></div>
+      <div class="card" id="prof-sec"></div>
+
+      <p class="hint" style="margin-top:16px;text-align:center">Driver App v1.0 · MVP build<br><span id="prof-cache">Offline cache active</span></p>
+    </div></div>
+    <div class="navslot" data-homenav></div>
+  </section>
+
+  <!-- ═══════════ SHEETS ═══════════ -->
+  <div class="scrim" id="scrim"></div>
+
+  <!-- CHANGE PASSWORD -->
+  <div class="sheet" id="sheet-password" role="dialog" aria-modal="true" aria-labelledby="pw-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="pw-title">Change password</h2>
+      <p class="sub">You'll stay signed in on this device. Other devices are signed out.</p>
+    </div>
+    <div class="sheet-body">
+      <label class="field">
+        <span>Current password</span>
+        <input id="pw-cur" type="password" autocomplete="current-password" placeholder="••••••••">
+        <button class="rev" data-rev="pw-cur" type="button">Show</button>
+      </label>
+      <label class="field">
+        <span>New password</span>
+        <input id="pw-new" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+        <button class="rev" data-rev="pw-new" type="button">Show</button>
+      </label>
+      <div class="meter"><i id="pw-meter"></i></div>
+      <div class="meter-lbl" id="pw-strength" style="color:var(--mute)">Strength</div>
+      <div class="reqs" id="pw-reqs"></div>
+      <label class="field">
+        <span>Confirm new password</span>
+        <input id="pw-conf" type="password" autocomplete="new-password" placeholder="Type it again">
+      </label>
+      <div id="pw-err"></div>
+    </div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-primary" id="btn-save-pw" style="flex:1.6">Update password</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGN OUT -->
+  <div class="sheet" id="sheet-signout" role="dialog" aria-modal="true" aria-labelledby="so-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="so-title">Sign out</h2>
+      <p class="sub" id="so-sub">You'll need your password to get back in.</p>
+    </div>
+    <div class="sheet-body" id="so-body"></div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Stay signed in</button>
+        <button class="btn btn-danger" id="btn-do-signout" style="flex:1.4">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. RECORD DELIVERY -->
+  <div class="sheet" id="sheet-deliver" role="dialog" aria-modal="true" aria-labelledby="dlv-cust">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="dlv-cust">—</h2>
+      <p class="sub" id="dlv-addr">—</p>
+      <div class="sheet-tags" id="dlv-tags"></div>
+    </div>
+    <div class="sheet-body">
+      <label class="field big">
+        <span>CO₂ delivered</span>
+        <input id="d-lbs" type="number" inputmode="decimal" min="0" step="1">
+        <i class="unit">LBS</i>
+      </label>
+      <p class="hint" id="d-expect">Expected 400 lb · tank has 4,200 lb</p>
+      <label class="field big" id="d-cash-field">
+        <span>Payment collected</span>
+        <div class="inline"><i class="pre">$</i><input id="d-cash" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      </label>
+      <p class="hint" id="d-cashnote">Cash on delivery — collect before you leave the site.</p>
+      <label class="field">
+        <span>Notes <i style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</i></span>
+        <textarea id="d-notes" rows="3" placeholder="Fittings, access, who signed…"></textarea>
+      </label>
+    </div>
+    <div class="sheet-foot">
+      <div class="btn-row">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-green" id="btn-save-delivery" style="flex:1.6">Save delivery</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAKE A BREAK -->
+  <div class="sheet" id="sheet-break" role="dialog" aria-modal="true" aria-labelledby="brk-title">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <h2 id="brk-title">Pause the route</h2>
+      <p class="sub">Your shift clock keeps running. Break time is logged separately and comes off your driving hours.</p>
+    </div>
+    <div class="sheet-body" id="brk-body"></div>
+    <div class="sheet-foot"><button class="btn btn-ghost" data-close>Never mind</button></div>
+  </div>
+
+  <!-- PAST ROUTE VIEW -->
+  <div class="sheet" id="sheet-past" role="dialog" aria-modal="true" aria-labelledby="past-title">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2 id="past-title">—</h2><p class="sub" id="past-sub">—</p></div>
+    <div class="sheet-body" id="past-body"></div>
+    <div class="sheet-foot"><button class="btn btn-ghost" data-close>Close</button></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
