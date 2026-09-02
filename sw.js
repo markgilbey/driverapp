@@ -1,6 +1,6 @@
 /* Driver App — service worker
    App shell is cached so the route survives dead zones between stops. */
-const CACHE = 'driver-app-v3';
+const CACHE = 'driver-app-v4';
 const SHELL = ['./', './index.html', './app.css', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {

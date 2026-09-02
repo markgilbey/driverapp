@@ -403,9 +403,9 @@ function openDelivery(stop) {
     `<span class="pill ${stop.pay === 'Cash' ? 'pill-amber' : 'pill-blue'}">${stop.pay}</span>
      <span class="pill pill-grey">Stop ${stop.seq} of ${S.route.stops.length}</span>
      <span class="pill pill-grey">Window ${stop.win}</span>`;
-  $('#d-lbs').value = stop.expected;
-  if (S.drive.state === 'arrived' && stop.pay === 'Cash') $('#d-cash').value = (stop.expected * 0.155).toFixed(2);
-  $('#d-expect').textContent = `Expected ${stop.expected} lb · tank has ${nf(S.co2Now)} lb`;
+  $('#d-lbs').value = '';
+  $('#d-lbs').placeholder = 'Meter reading';
+  lbsHint();
   $('#d-notes').value = '';
   const cash = stop.pay === 'Cash';
   $('#d-cash-field').classList.toggle('locked', !cash);
@@ -417,11 +417,29 @@ function openDelivery(stop) {
   sheet('#sheet-deliver');
 }
 
+/* Scheduled volume is a planning figure — it drifts with the time of day and
+   what the customer actually burned through. Only the meter is truth. */
+function lbsHint() {
+  const stop = S.activeStop; if (!stop) return;
+  const el2 = $('#d-expect'), v = parseFloat($('#d-lbs').value);
+  const base = `Enter actual meter amount (Scheduled: ${nf(stop.expected)} lb)`;
+  if (!v || v <= 0) { el2.textContent = base; el2.classList.remove('warn'); return; }
+  const diff = Math.round(v - stop.expected);
+  if (Math.abs(diff) < Math.max(25, stop.expected * 0.12)) {
+    el2.textContent = `${base} · tank has ${nf(S.co2Now)} lb`;
+    el2.classList.remove('warn');
+  } else {
+    el2.textContent = `${nf(Math.abs(diff))} lb ${diff > 0 ? 'over' : 'under'} schedule — dispatch sees the variance. (Scheduled: ${nf(stop.expected)} lb)`;
+    el2.classList.add('warn');
+  }
+}
+$('#d-lbs').addEventListener('input', lbsHint);
+
 $('#btn-save-delivery').onclick = () => {
   const s = S.activeStop; if (!s) return;
   const lbs = +$('#d-lbs').value || 0;
   const cash = +$('#d-cash').value || 0;
-  if (lbs <= 0) { toast('Enter the pounds delivered to save this stop.', true); $('#d-lbs').focus(); return; }
+  if (!lbs || lbs <= 0) { toast('Enter the actual meter amount to save this stop.', true); $('#d-lbs').focus(); return; }
   if (lbs > S.co2Now) { toast(`Only ${nf(S.co2Now)} lb left on the truck.`, true); return; }
   s.lbs = lbs; s.cash = cash; s.notes = $('#d-notes').value.trim(); s.status = 'done'; s.at = new Date();
   S.co2Now = Math.max(0, S.co2Now - lbs);
@@ -1006,7 +1024,7 @@ function renderDrive() {
         </button>
         <button class="ctog" data-check="filled">
           <span class="sw${c.filled ? ' on' : ''}"><i></i></span>
-          <b>Tank filled &amp; hose stowed<small>${cur.expected} lb expected</small></b>
+          <b>Tank filled &amp; hose stowed<small>Scheduled ${cur.expected} lb — read the meter</small></b>
         </button>
         ${cash ? `<button class="ctog" data-check="paid">
           <span class="sw${c.paid ? ' on' : ''}"><i></i></span>
